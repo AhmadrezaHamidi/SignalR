@@ -297,13 +297,16 @@ namespace Microsoft.AspNet.SignalR.Transports
 
             context.Transport.Context.Response.ContentType = JsonUtility.JsonMimeType;
 
-            context.Transport.JsonSerializer.Serialize(context.State, context.Transport.OutputWriter);
-            context.Transport.OutputWriter.Flush();
+            using (var writer = new BinaryTextWriter(context.Transport.Context.Response))
+            {
+                context.Transport.JsonSerializer.Serialize(context.State, writer);
+                writer.Flush();
+            }
 
             return TaskAsyncHelper.Empty;
         }
 
-        private class ForeverTransportContext
+        private struct ForeverTransportContext
         {
             public object State;
             public ForeverTransport Transport;
@@ -315,7 +318,7 @@ namespace Microsoft.AspNet.SignalR.Transports
             }
         }
 
-        private class SubscriptionDisposerContext
+        private struct SubscriptionDisposerContext
         {
             private readonly Disposer _disposer;
             private readonly IDisposable _supscription;
@@ -332,7 +335,7 @@ namespace Microsoft.AspNet.SignalR.Transports
             }
         }
 
-        internal class RequestLifetime
+        internal struct RequestLifetime
         {
             private readonly HttpRequestLifeTime _lifetime;
             private readonly ForeverTransport _transport;

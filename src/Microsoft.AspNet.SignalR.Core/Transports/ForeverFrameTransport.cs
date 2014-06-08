@@ -30,36 +30,9 @@ namespace Microsoft.AspNet.SignalR.Transports
                                             "</script></head>" +
                                             "<body>\r\n";
 
-        private HTMLTextWriter _htmlOutputWriter;
-
         public ForeverFrameTransport(HostContext context, IDependencyResolver resolver)
             : base(context, resolver)
         {
-        }
-
-        /// <summary>
-        /// Pointed to the HTMLOutputWriter to wrap output stream with an HTML friendly one
-        /// </summary>
-        public override TextWriter OutputWriter
-        {
-            get
-            {
-                return HTMLOutputWriter;
-            }
-        }
-
-        private HTMLTextWriter HTMLOutputWriter
-        {
-            get
-            {
-                if (_htmlOutputWriter == null)
-                {
-                    _htmlOutputWriter = new HTMLTextWriter(Context.Response);
-                    _htmlOutputWriter.NewLine = "\n";
-                }
-
-                return _htmlOutputWriter;
-            }
         }
 
         public override Task KeepAlive()
@@ -112,8 +85,13 @@ namespace Microsoft.AspNet.SignalR.Transports
         {
             context.Transport.Context.Response.ContentType = "text/html; charset=UTF-8";
 
-            context.Transport.HTMLOutputWriter.WriteRaw((string)context.State);
-            context.Transport.HTMLOutputWriter.Flush();
+            using (var htmlOutputWriter = new HTMLTextWriter(context.Transport.Context.Response))
+            {
+                htmlOutputWriter.NewLine = "\n";
+
+                htmlOutputWriter.WriteRaw((string)context.State);
+                htmlOutputWriter.Flush();
+            }
 
             return context.Transport.Context.Response.Flush();
         }
@@ -122,10 +100,14 @@ namespace Microsoft.AspNet.SignalR.Transports
         {
             var context = (ForeverFrameTransportContext)state;
 
-            context.Transport.HTMLOutputWriter.WriteRaw("<script>r(c, ");
-            context.Transport.JsonSerializer.Serialize(context.State, context.Transport.HTMLOutputWriter);
-            context.Transport.HTMLOutputWriter.WriteRaw(");</script>\r\n");
-            context.Transport.HTMLOutputWriter.Flush();
+            using (var htmlOutputWriter = new HTMLTextWriter(context.Transport.Context.Response))
+            {
+                htmlOutputWriter.NewLine = "\n";
+                htmlOutputWriter.WriteRaw("<script>r(c, ");
+                context.Transport.JsonSerializer.Serialize(context.State, htmlOutputWriter);
+                htmlOutputWriter.WriteRaw(");</script>\r\n");
+                htmlOutputWriter.Flush();
+            }
 
             return context.Transport.Context.Response.Flush();
         }
@@ -134,18 +116,22 @@ namespace Microsoft.AspNet.SignalR.Transports
         {
             var transport = (ForeverFrameTransport)state;
 
-            transport.HTMLOutputWriter.WriteRaw("<script>r(c, {});</script>");
-            transport.HTMLOutputWriter.WriteLine();
-            transport.HTMLOutputWriter.WriteLine();
-            transport.HTMLOutputWriter.Flush();
+            using (var htmlOutputWriter = new HTMLTextWriter(transport.Context.Response))
+            {
+                htmlOutputWriter.NewLine = "\n";
+                htmlOutputWriter.WriteRaw("<script>r(c, {});</script>");
+                htmlOutputWriter.WriteLine();
+                htmlOutputWriter.WriteLine();
+                htmlOutputWriter.Flush();
+            }
 
             return transport.Context.Response.Flush();
         }
 
-        private class ForeverFrameTransportContext
+        private struct ForeverFrameTransportContext
         {
-            public ForeverFrameTransport Transport;
-            public object State;
+            public readonly ForeverFrameTransport Transport;
+            public readonly object State;
 
             public ForeverFrameTransportContext(ForeverFrameTransport transport, object state)
             {
