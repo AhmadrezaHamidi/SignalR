@@ -68,6 +68,9 @@ namespace Microsoft.AspNet.SignalR
 
             var userIdProvider = new PrincipalUserIdProvider();
             Register(typeof(IUserIdProvider), () => userIdProvider);
+
+            var pool = new MemoryPool();
+            Register(typeof(IMemoryPool), () => pool);
         }
 
         private void RegisterHubExtensions()

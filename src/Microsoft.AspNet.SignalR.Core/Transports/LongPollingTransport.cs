@@ -26,7 +26,8 @@ namespace Microsoft.AspNet.SignalR.Transports
                    resolver.Resolve<ITransportHeartbeat>(),
                    resolver.Resolve<IPerformanceCounterManager>(),
                    resolver.Resolve<ITraceManager>(),
-                   resolver.Resolve<IConfigurationManager>())
+                   resolver.Resolve<IConfigurationManager>(),
+                   resolver.Resolve<IMemoryPool>())
         {
 
         }
@@ -36,8 +37,9 @@ namespace Microsoft.AspNet.SignalR.Transports
                                     ITransportHeartbeat heartbeat,
                                     IPerformanceCounterManager performanceCounterManager,
                                     ITraceManager traceManager,
-                                    IConfigurationManager configurationManager)
-            : base(context, jsonSerializer, heartbeat, performanceCounterManager, traceManager)
+                                    IConfigurationManager configurationManager,
+                                    IMemoryPool pool)
+            : base(context, jsonSerializer, heartbeat, performanceCounterManager, traceManager, pool)
         {
             _configurationManager = configurationManager;
         }
@@ -245,7 +247,7 @@ namespace Microsoft.AspNet.SignalR.Transports
                 return TaskAsyncHelper.Empty;
             }
 
-            using (var writer = new BinaryTextWriter(context.Transport.Context.Response))
+            using (var writer = new BinaryMemoryPoolTextWriter(context.Transport.Pool))
             {
                 if (context.Transport.IsJsonp)
                 {
@@ -261,6 +263,8 @@ namespace Microsoft.AspNet.SignalR.Transports
                 }
 
                 writer.Flush();
+
+                context.Transport.Context.Response.Write(writer.Buffer);
             }
 
             return context.Transport.Context.Response.Flush();
