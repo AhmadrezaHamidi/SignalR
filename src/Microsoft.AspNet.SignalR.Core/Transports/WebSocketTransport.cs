@@ -3,7 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNet.SignalR.Configuration;
@@ -29,6 +29,8 @@ namespace Microsoft.AspNet.SignalR.Transports
         private readonly Action<string> _message;
         private readonly Action _closed;
         private readonly Action<Exception> _error;
+
+        private static readonly byte[] _keepAlive = Encoding.UTF8.GetBytes("{}");
 
         public WebSocketTransport(HostContext context,
                                   IDependencyResolver resolver)
@@ -81,7 +83,7 @@ namespace Microsoft.AspNet.SignalR.Transports
             return EnqueueOperation(state =>
             {
                 var webSocket = (IWebSocket)state;
-                return webSocket.Send("{}");
+                return webSocket.Send(new ArraySegment<byte>(_keepAlive));
             },
             _socket);
         }
@@ -149,8 +151,7 @@ namespace Microsoft.AspNet.SignalR.Transports
                     context.Transport.JsonSerializer.Serialize(context.State, writer);
                     writer.Flush();
 
-                    await socket.SendChunk(writer.Buffer).PreserveCulture();
-                    await socket.Flush().PreserveCulture();
+                    await socket.Send(writer.Buffer).PreserveCulture();
                 }
                 catch (Exception ex)
                 {
